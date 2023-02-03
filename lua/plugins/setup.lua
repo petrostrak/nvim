@@ -1,12 +1,7 @@
--- Packer, manually install it:
--- git clone --depth 1 https://github.com/wbthomason/packer.nvim \
---   ~/.config/nvim/pack/packer/start/packer.nvim
--- OR auto install packer if not installed
--- $PWD/.local/share/nvim/ + ..
+-- auto install packer if not installed
 local ensure_packer = function()
   local fn = vim.fn
   local install_path = fn.stdpath("data") .. "/site/pack/packer/start/packer.nvim"
-
   if fn.empty(fn.glob(install_path)) > 0 then
     fn.system({ "git", "clone", "--depth", "1", "https://github.com/wbthomason/packer.nvim", install_path })
     vim.cmd([[packadd packer.nvim]])
@@ -16,11 +11,26 @@ local ensure_packer = function()
 end
 local packer_bootstrap = ensure_packer() -- true if packer was just installed
 
-return require("packer").startup(function()
+-- autocommand that reloads neovim and installs/updates/removes plugins
+-- when file is saved
+vim.cmd([[ 
+  augroup packer_user_config
+    autocmd!
+    autocmd BufWritePost plugins-setup.lua source <afile> | PackerSync
+  augroup end
+]])
+
+-- import packer safely
+local status, packer = pcall(require, "packer")
+if not status then
+  return
+end
+
+return packer.startup(function()
   use "wbthomason/packer.nvim"          -- https://github.com/wbthomason/packer.nvim
 
   -- Look and Feel
-  use { "catppuccin/nvim", as = "catppuccin" } -- https://github.com/catppuccin/nvim
+  use("bluz71/vim-nightfly-guicolors") -- preferred colorscheme
 
   -- Productivity
   use { "romgrk/barbar.nvim", wants = "nvim-tree/nvim-web-devicons" } -- https://github.com/romgrk/barbar.nvim
