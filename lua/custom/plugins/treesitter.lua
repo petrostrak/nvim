@@ -1,5 +1,6 @@
 return {
   'nvim-treesitter/nvim-treesitter',
+  branch = 'master', -- classic API (`.configs.setup{...}`); `main` is a rewrite with a different API
   event = 'VeryLazy', -- load shortly after startup instead of on first file open,
   -- so it doesn't load mid-way through nvim-tree's open (which caused the first-open double-press)
   build = ':TSUpdate',
