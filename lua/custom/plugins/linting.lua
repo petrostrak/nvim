@@ -8,6 +8,9 @@ return {
     lint.linters_by_ft = {
       c = { 'clangtidy' },
       cpp = { 'clangtidy' },
+      go = { 'golangcilint' },
+      python = { 'ruff' },
+      -- NOTE: Rust linting (clippy) is provided by rust_analyzer via LSP.
     }
 
     local lint_augroup = vim.api.nvim_create_augroup('lint', { clear = true })

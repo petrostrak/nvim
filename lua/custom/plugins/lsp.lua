@@ -168,6 +168,64 @@ return {
           clangdFileStatus = true,
         },
       },
+      -- Rust
+      rust_analyzer = {
+        settings = {
+          ['rust-analyzer'] = {
+            cargo = { allFeatures = true },
+            checkOnSave = true,
+            check = { command = 'clippy' },
+          },
+        },
+      },
+      -- Go
+      gopls = {
+        settings = {
+          gopls = {
+            gofumpt = true,
+            usePlaceholders = true,
+            analyses = {
+              unusedparams = true,
+              nilness = true,
+              unusedwrite = true,
+              useany = true,
+            },
+            staticcheck = true,
+            hints = {
+              assignVariableTypes = true,
+              compositeLiteralFields = true,
+              constantValues = true,
+              functionTypeParameters = true,
+              parameterNames = true,
+              rangeVariableTypes = true,
+            },
+          },
+        },
+      },
+      -- Python
+      -- pylsp (python-lsp-server) is used instead of pyright because it installs
+      -- via pip and needs no Node/npm toolchain. Linting/formatting is delegated
+      -- to ruff/black/isort (configured in linting.lua and formatting.lua), so the
+      -- overlapping pylsp plugins are disabled here to avoid duplicate diagnostics.
+      pylsp = {
+        settings = {
+          pylsp = {
+            plugins = {
+              pycodestyle = { enabled = false },
+              pyflakes = { enabled = false },
+              mccabe = { enabled = false },
+              autopep8 = { enabled = false },
+              yapf = { enabled = false },
+              -- Enable jedi-based completion, hover and go-to-definition.
+              jedi_completion = { enabled = true, include_params = true },
+              jedi_hover = { enabled = true },
+              jedi_references = { enabled = true },
+              jedi_signature_help = { enabled = true },
+              jedi_symbols = { enabled = true, all_scopes = true },
+            },
+          },
+        },
+      },
       lua_ls = {
         settings = {
           Lua = {
@@ -196,7 +254,18 @@ return {
     vim.list_extend(ensure_installed, {
       'stylua', -- Used to format Lua code (this config)
       'clang-format', -- C/C++ formatter
-      'codelldb', -- C/C++ debugger
+      'codelldb', -- C/C++ and Rust debugger
+      -- Go
+      'goimports', -- Go formatter (imports + gofmt)
+      'gofumpt', -- Stricter Go formatter
+      'golangci-lint', -- Go linter
+      'delve', -- Go debugger
+      -- Python
+      'black', -- Python formatter
+      'isort', -- Python import sorter
+      'ruff', -- Python linter
+      'debugpy', -- Python debugger
+      -- NOTE: `rustfmt` and `clippy` come from the Rust toolchain (rustup), not Mason.
     })
     require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 

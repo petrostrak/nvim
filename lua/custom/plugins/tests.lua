@@ -5,18 +5,23 @@ return {
     'jay-babu/mason-nvim-dap.nvim',
     'nvim-neotest/nvim-nio',
     'theHamsta/nvim-dap-virtual-text',
+    'leoluz/nvim-dap-go', -- Go debugging helpers (delve)
+    'mfussenegger/nvim-dap-python', -- Python debugging helpers (debugpy)
   },
   config = function()
     local dap = require 'dap'
     local ui = require 'dapui'
 
-    -- Ensure the C/C++ debug adapter (codelldb) is installed via Mason.
+    -- Ensure the debug adapters are installed via Mason.
+    --   codelldb -> C/C++ and Rust
+    --   delve    -> Go
+    --   debugpy  -> Python
     require('mason-nvim-dap').setup {
       automatic_installation = true,
-      ensure_installed = { 'codelldb' },
+      ensure_installed = { 'codelldb', 'delve', 'python' },
     }
 
-    -- codelldb adapter (also drives the `c` and `cpp` filetypes below).
+    -- codelldb adapter (drives the `c`, `cpp` and `rust` filetypes below).
     dap.adapters.codelldb = {
       type = 'server',
       port = '${port}',
@@ -26,8 +31,8 @@ return {
       },
     }
 
-    -- Launch configuration shared by C and C++.
-    local cpp_config = {
+    -- Launch configuration shared by C, C++ and Rust.
+    local native_config = {
       {
         name = 'Launch executable',
         type = 'codelldb',
@@ -48,8 +53,17 @@ return {
       },
     }
 
-    dap.configurations.c = cpp_config
-    dap.configurations.cpp = cpp_config
+    dap.configurations.c = native_config
+    dap.configurations.cpp = native_config
+    dap.configurations.rust = native_config
+
+    -- Go: dap-go wires up the delve adapter and standard launch configs
+    -- (debug nearest test, debug package, attach, etc.).
+    require('dap-go').setup()
+
+    -- Python: dap-python uses the debugpy installed by Mason.
+    local mason_debugpy = vim.fn.stdpath 'data' .. '/mason/packages/debugpy/venv/bin/python'
+    require('dap-python').setup(mason_debugpy)
 
     -- Show variable values inline while debugging.
     require('nvim-dap-virtual-text').setup {}

@@ -24,6 +24,9 @@ return { -- Autoformat
       lua = { 'stylua' },
       c = { 'clang-format' },
       cpp = { 'clang-format' },
+      rust = { 'rustfmt' },
+      go = { 'goimports', 'gofumpt' },
+      python = { 'isort', 'black' },
     },
   },
 }
