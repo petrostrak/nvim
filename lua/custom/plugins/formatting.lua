@@ -28,5 +28,15 @@ return { -- Autoformat
       go = { 'goimports', 'gofumpt' },
       python = { 'isort', 'black' },
     },
+    formatters = {
+      -- Put the opening brace on its own line everywhere (Allman style),
+      -- keeping the rest of the LLVM defaults.
+      -- NOTE: this style is passed on the command line, so it overrides any
+      -- project-local `.clang-format` file. Drop this override if you want
+      -- per-project `.clang-format` files to win instead.
+      ['clang-format'] = {
+        prepend_args = { '--style={ BasedOnStyle: LLVM, BreakBeforeBraces: Allman }' },
+      },
+    },
   },
 }
