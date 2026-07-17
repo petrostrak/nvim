@@ -151,6 +151,10 @@ return {
     local capabilities = require('blink.cmp').get_lsp_capabilities()
 
     -- LSP CONF
+    -- clangd is only useful on machines where you develop C/C++. On other
+    -- machines it attaches to buffers with no compilation database and throws
+    -- `-32001: invalid AST`. Set `vim.g.enable_clangd = true` (e.g. in a
+    -- machine-local config) on your C dev machine to turn it on there.
     local servers = {
       clangd = {
         cmd = {
@@ -236,6 +240,11 @@ return {
         },
       },
     }
+
+    -- Only run clangd on machines that opt in (see note above).
+    if not vim.g.enable_clangd then
+      servers.clangd = nil
+    end
 
     -- Ensure the servers and tools above are installed
     --
