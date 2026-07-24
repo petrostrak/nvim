@@ -67,11 +67,10 @@ return {
     dap.configurations.rust = native_config
 
     -- STM32 / Cortex-M: attach to an OpenOCD gdbserver already listening on
-    -- localhost:3333 (OpenOCD's default). Start OpenOCD yourself first, e.g.:
-    --   openocd -f interface/<YOUR_PROBE>.cfg -f target/<YOUR_STM32_FAMILY>.cfg
-    -- FILL IN: <YOUR_PROBE> (e.g. stlink.cfg, cmsis-dap.cfg, jlink.cfg) and
-    -- <YOUR_STM32_FAMILY> (e.g. stm32f4x.cfg, stm32g4x.cfg, stm32h7x.cfg)
-    -- depend on your debug probe and chip family.
+    -- localhost:3333 (OpenOCD's default). Start OpenOCD yourself first:
+    --   openocd -f board/stm32f3discovery.cfg
+    -- (board file for the STM32F3Discovery's onboard ST-Link + STM32F303VCT6;
+    -- swap this if you move to different hardware.)
     local stm32_openocd_config = {
       name = 'STM32: Attach via OpenOCD',
       type = 'cppdbg',
