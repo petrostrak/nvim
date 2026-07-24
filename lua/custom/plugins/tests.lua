@@ -18,7 +18,7 @@ return {
     --   debugpy  -> Python
     require('mason-nvim-dap').setup {
       automatic_installation = true,
-      ensure_installed = { 'codelldb', 'delve', 'python' },
+      ensure_installed = { 'codelldb', 'delve', 'python', 'cpptools' },
     }
 
     -- codelldb adapter (drives the `c`, `cpp` and `rust` filetypes below).
@@ -29,6 +29,15 @@ return {
         command = 'codelldb',
         args = { '--port', '${port}' },
       },
+    }
+
+    -- cpptools adapter: bridges DAP to GDB/MI. Used for Cortex-M targets,
+    -- where arm-none-eabi-gdb talks to an OpenOCD gdbserver instead of
+    -- codelldb/lldb attaching directly.
+    dap.adapters.cppdbg = {
+      id = 'cppdbg',
+      type = 'executable',
+      command = vim.fn.stdpath 'data' .. '/mason/packages/cpptools/extension/debugAdapters/bin/OpenDebugAD7',
     }
 
     -- Launch configuration shared by C, C++ and Rust.
@@ -56,6 +65,37 @@ return {
     dap.configurations.c = native_config
     dap.configurations.cpp = native_config
     dap.configurations.rust = native_config
+
+    -- STM32 / Cortex-M: attach to an OpenOCD gdbserver already listening on
+    -- localhost:3333 (OpenOCD's default). Start OpenOCD yourself first, e.g.:
+    --   openocd -f interface/<YOUR_PROBE>.cfg -f target/<YOUR_STM32_FAMILY>.cfg
+    -- FILL IN: <YOUR_PROBE> (e.g. stlink.cfg, cmsis-dap.cfg, jlink.cfg) and
+    -- <YOUR_STM32_FAMILY> (e.g. stm32f4x.cfg, stm32g4x.cfg, stm32h7x.cfg)
+    -- depend on your debug probe and chip family.
+    local stm32_openocd_config = {
+      name = 'STM32: Attach via OpenOCD',
+      type = 'cppdbg',
+      request = 'launch',
+      MIMode = 'gdb',
+      miDebuggerPath = 'arm-none-eabi-gdb',
+      miDebuggerServerAddress = 'localhost:3333',
+      program = function()
+        return vim.fn.input('Path to ELF: ', vim.fn.getcwd() .. '/build/', 'file')
+      end,
+      cwd = '${workspaceFolder}',
+      stopAtEntry = true,
+      -- Flash + reset before every debug session. If you'd rather flash
+      -- only via `make flash` (keybinding below) and just attach here,
+      -- delete the `load` line.
+      postRemoteConnectCommands = {
+        { text = 'monitor reset halt', description = 'Reset and halt target', ignoreFailures = false },
+        { text = 'load', description = 'Flash ELF via gdb', ignoreFailures = false },
+        { text = 'monitor reset halt', description = 'Reset again after flashing', ignoreFailures = false },
+      },
+    }
+
+    dap.configurations.c = vim.list_extend({ unpack(native_config) }, { stm32_openocd_config })
+    dap.configurations.cpp = vim.list_extend({ unpack(native_config) }, { stm32_openocd_config })
 
     -- Go: dap-go wires up the delve adapter and standard launch configs
     -- (debug nearest test, debug package, attach, etc.).

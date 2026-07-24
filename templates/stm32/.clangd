@@ -1,0 +1,20 @@
+# STM32 cross-compilation config for clangd.
+# Copy to the root of your STM32 project (next to Makefile / compile_commands.json)
+# and keep the filename `.clangd`.
+#
+# The `--query-driver` flag in Neovim's global clangd config is what lets
+# clangd trust this compiler at all. `Compiler` below just tells clangd
+# *which* trusted compiler to query for this project's system include paths
+# (CMSIS, HAL, newlib-nano, etc.).
+
+CompileFlags:
+  Compiler: arm-none-eabi-gcc
+
+  # If compile_commands.json isn't in the project root (e.g. generated into
+  # a build/ subdir), point at that directory instead:
+  # CompilationDatabase: build
+
+Diagnostics:
+  # HAL/CMSIS headers pull in a lot that's unused per translation unit;
+  # this quiets the noisiest iwyu-style warnings. Remove if unwanted.
+  UnusedIncludes: None

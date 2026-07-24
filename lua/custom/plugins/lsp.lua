@@ -165,6 +165,7 @@ return {
           '--completion-style=detailed',
           '--function-arg-placeholders',
           '--fallback-style=llvm',
+          '--query-driver=/opt/homebrew/bin/arm-none-eabi-*',
         },
         init_options = {
           usePlaceholders = true,
