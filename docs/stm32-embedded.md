@@ -18,7 +18,30 @@ Tooling installed on this machine:
 - **`compiledb`** — installed via Homebrew, generates `compile_commands.json` from a Makefile build. (`bear` was tried first but triggered a from-source Rust compiler bootstrap on this machine's Homebrew/macOS combo, so `compiledb` is used instead — no functional difference for our purposes.)
 - **cpptools** — a Mason-managed package (auto-installs on Neovim startup now that it's in `lsp.lua`'s `ensure_installed`), used as the DAP adapter that speaks GDB/MI to OpenOCD.
 
-## One-time setup per STM32 project
+## Scaffolding a new project (STM32F3Discovery, bare CMSIS)
+
+For a fresh project targeting this exact board, there's a one-command skeleton generator:
+
+```sh
+~/.config/nvim/templates/stm32/new-f3discovery-project.sh <project-name> [parent-dir]
+```
+
+It creates `<parent-dir>/<project-name>/` containing:
+
+- **CMSIS headers** (ARM core + STM32F303xC device) and **`system_stm32f3xx.c`** — vendored from STMicroelectronics' official `STM32CubeF3` and `cmsis_device_f3` repos, not hand-written.
+- **`startup_stm32f303xc.s`** and **`STM32F303VCTx_FLASH.ld`** — the real startup file and board-specific linker script from ST's own `Projects/STM32F3-Discovery/Templates/SW4STM32/` project (correct FLASH/RAM/CCMRAM layout for the VCT6, not guessed).
+- **`Core/Src/syscalls.c`** and **`Core/Src/sysmem.c`** — your existing CubeIDE-generated versions.
+- **`Core/Src/main.c`** — a minimal bare-register blink of LD3 (PE8), no HAL/LL involved, so you can see the whole boot path (reset handler → `SystemInit()` → `main()`) with nothing hidden.
+- **`Makefile`** — builds `.elf`/`.hex`/`.bin` for Cortex-M4F (`-mfpu=fpv4-sp-d16 -mfloat-abi=hard`, matches the F303's hardware FPU), plus a `flash` target using `openocd -f board/stm32f3discovery.cfg`.
+- **`.clangd`** and **`.gitignore`** already in place.
+
+The script also runs an initial `make` + `compiledb make` for you, so the project is fully buildable and clangd-ready the moment it's created — no manual setup steps afterward. This whole flow (vendored files, generated skeleton, and the resulting build) was test-built end-to-end before being handed to you: `arm-none-eabi-gcc` compiled and linked cleanly, and the produced `.elf`'s vector table was checked byte-for-byte (initial stack pointer `0x2000A000` matching `_estack`, entry point matching `Reset_Handler`).
+
+**If you outgrow bare-metal for a specific peripheral** (USB, RTC, etc.), HAL or LL sources can be vendored in later the same way (`stm32f3xx_hal_driver` / same repo's `Templates_LL`) — nothing about this skeleton locks you out of that.
+
+## One-time setup for an existing STM32 project
+
+If you didn't use the scaffold script above (e.g. a project ported from CubeIDE), do this by hand:
 
 1. **Generate `compile_commands.json`** so clangd can see your actual build flags, defines, and include paths:
    ```sh
