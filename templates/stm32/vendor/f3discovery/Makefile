@@ -34,7 +34,7 @@ ASFLAGS = $(MCU) -g
 
 LDSCRIPT = STM32F303VCTx_FLASH.ld
 LIBS = -lc -lm -lnosys
-LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections
+LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections,--no-warn-rwx-segments
 
 # --- Build rules ---
 OBJECTS = $(addprefix $(BUILD_DIR)/,$(notdir $(C_SOURCES:.c=.o)))
