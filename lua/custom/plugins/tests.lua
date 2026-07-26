@@ -154,7 +154,10 @@ return {
     vim.keymap.set('n', '<leader>dc', dap.continue, { desc = 'Debug: Continue' })
     vim.keymap.set('n', '<leader>dr', dap.repl.open, { desc = 'Debug: Open REPL' })
     vim.keymap.set('n', '<leader>dl', dap.run_last, { desc = 'Debug: Run last' })
-    vim.keymap.set('n', '<leader>dq', dap.terminate, { desc = 'Debug: Quit' })
+    vim.keymap.set('n', '<leader>dq', function()
+      dap.terminate()
+      ui.close()
+    end, { desc = 'Debug: Quit' })
 
     -- Function key bindings for stepping
     vim.keymap.set('n', '<F1>', dap.continue, { desc = 'Continue' })
