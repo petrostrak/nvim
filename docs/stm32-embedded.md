@@ -115,6 +115,42 @@ Debugging happens in two steps: start OpenOCD (once per debug session, stays run
 
 **If you'd rather flash only via `<leader>bf`** and just attach (not reflash) when you start a debug session, remove the `load` line from `postRemoteConnectCommands` in `tests.lua` — keep the two `monitor reset halt` lines to still reset and halt the target on attach.
 
+### Debug console output: ITM/SWO vs ARM semihosting
+
+`main.c`'s `printf` normally goes out over **ITM/SWO** — `syscalls.c`'s `_write` calls `ITM_SendChar()`. For semihosted `printf` (output shows up directly in gdb's console instead), the Makefile has a build-mode toggle:
+
+```sh
+make                  # default: ITM/SWO printf via syscalls.c
+make SEMIHOSTING=1    # semihosted printf via librdimon, needs a live debugger
+```
+
+**Why this needs to be a separate build, not just an extra linker flag**: `librdimon` (the semihosting library) bundles its `_close`/`_lseek`/`_open`/`_isatty`/`_unlink`/`_times`/`initialise_monitor_handles` into a single archive object as *strong* symbols — the same names `syscalls.c` defines. Linking both together fails outright:
+
+```
+multiple definition of `_lseek'; ... first defined here
+multiple definition of `_close'; ...
+multiple definition of `_open'; ...
+multiple definition of `initialise_monitor_handles'; ...
+multiple definition of `_unlink'; ...
+multiple definition of `_times'; ...
+multiple definition of `_isatty'; ...
+```
+
+(I hit this and verified it directly before writing this toggle.) So `SEMIHOSTING=1`:
+- **Excludes `Core/Src/syscalls.c`** from the build entirely (`Core/Src/sysmem.c` stays either way — its `_sbrk` is a strong symbol that safely overrides `librdimon`'s weak default, so heap allocation keeps its stack-collision safety check regardless of mode).
+- Swaps `LIBS`/`LDFLAGS` to `-specs=rdimon.specs` (which injects `librdimon` and `libc` itself — don't add `-lrdimon` manually) instead of `-lnosys`.
+- Builds into `build-semihost/` instead of `build/`, so switching modes back and forth never needs a `make clean` first and never mixes stale objects from the other mode.
+
+With `syscalls.c` excluded, `librdimon` provides real implementations rather than colliding with them — verified by symbol size: `initialise_monitor_handles` is 12 bytes (empty stub) in the default build vs. 188 bytes (real implementation) with `SEMIHOSTING=1`, and `_write`/`_read` resolve to real semihosting calls instead of ITM.
+
+Already wired up for this mode, regardless of which one is active:
+- **`monitor arm semihosting enable`** in `postRemoteConnectCommands` (`tests.lua`) — runs on every debug session. Harmless when unused: it just tells OpenOCD to trap the semihosting instruction instead of faulting on it.
+- **`extern void initialise_monitor_handles(void);`** + a call to it at the top of `main()` in the vendored template — a no-op in the default build, the real handshake call under `SEMIHOSTING=1`.
+
+**Trade-offs**: ITM/SWO is faster (trace output, not a CPU-halting trap per character) and doesn't require a live debugger to produce output. Semihosting is slower and *only* works while a debugger is attached with semihosting enabled — flashed and run standalone (no debugger), semihosting calls will hang. Default to ITM; reach for `make SEMIHOSTING=1` when you specifically need `printf` visible in gdb's console during a debug session.
+
+When debugging with `SEMIHOSTING=1`, remember the DAP config's default ELF-path prompt still suggests `<project>/build/` — point it at `build-semihost/firmware.elf` instead.
+
 ## Troubleshooting
 
 - **clangd shows errors on HAL/CMSIS headers, or "unknown argument" errors mentioning ARM-specific flags** — usually means `.clangd` isn't in the project root, or `compile_commands.json` is stale/missing. Re-run `compiledb make` and check `:LspInfo` in Neovim to confirm which config it picked up.

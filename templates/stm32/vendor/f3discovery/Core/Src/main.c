@@ -11,6 +11,11 @@
  *   PE14 LD9  orange   PE15 LD10 green
  */
 #include "stm32f3xx.h"
+#include <stdint.h>
+
+/* No-op unless semihosting replaces the ITM _write path in syscalls.c -
+ * see "ARM semihosting" in docs/stm32-embedded.md before relying on it. */
+extern void initialise_monitor_handles(void);
 
 static void delay(volatile uint32_t count)
 {
@@ -22,6 +27,8 @@ static void delay(volatile uint32_t count)
 
 int main(void)
 {
+  initialise_monitor_handles();
+
   /* Enable GPIOE clock */
   RCC->AHBENR |= RCC_AHBENR_GPIOEEN;
 

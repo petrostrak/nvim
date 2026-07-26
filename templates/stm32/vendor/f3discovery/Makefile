@@ -1,13 +1,32 @@
 TARGET = firmware
 
+# Set to 1 to build against ARM semihosting (real printf via gdb, needs a
+# live debug session) instead of the default ITM/SWO path in syscalls.c.
+# Only one can be linked at a time - librdimon (semihosting) and syscalls.c
+# both define _close/_lseek/_open/_isatty/_unlink/_times/
+# initialise_monitor_handles as strong symbols, so linking both causes
+# "multiple definition" errors. See docs/stm32-embedded.md, "Debug console
+# output: ITM/SWO vs ARM semihosting".
+#
+#   make                  # ITM/SWO printf (default)
+#   make SEMIHOSTING=1    # semihosted printf, debugger must be attached
+SEMIHOSTING ?= 0
+
+ifeq ($(SEMIHOSTING),1)
+BUILD_DIR = build-semihost
+else
 BUILD_DIR = build
+endif
 
 # --- Sources ---
 C_SOURCES = \
 Core/Src/main.c \
-Core/Src/syscalls.c \
 Core/Src/sysmem.c \
 Drivers/CMSIS/Device/ST/STM32F3xx/Source/system_stm32f3xx.c
+
+ifeq ($(SEMIHOSTING),0)
+C_SOURCES += Core/Src/syscalls.c
+endif
 
 ASM_SOURCES = startup_stm32f303xc.s
 
@@ -33,8 +52,14 @@ CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) -Wall -Wextra -fdata-sections -ffunction
 ASFLAGS = $(MCU) -g
 
 LDSCRIPT = STM32F303VCTx_FLASH.ld
+
+ifeq ($(SEMIHOSTING),1)
+LIBS = -lc -lm
+LDFLAGS = $(MCU) -specs=nano.specs -specs=rdimon.specs -T$(LDSCRIPT) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections,--no-warn-rwx-segments
+else
 LIBS = -lc -lm -lnosys
 LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections,--no-warn-rwx-segments
+endif
 
 # --- Build rules ---
 OBJECTS = $(addprefix $(BUILD_DIR)/,$(notdir $(C_SOURCES:.c=.o)))
@@ -64,7 +89,7 @@ $(BUILD_DIR):
 	mkdir -p $@
 
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf build build-semihost
 
 flash: $(BUILD_DIR)/$(TARGET).elf
 	openocd -f board/stm32f3discovery.cfg -c "program $< verify reset exit"

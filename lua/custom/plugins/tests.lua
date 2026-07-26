@@ -87,6 +87,10 @@ return {
       -- only via `make flash` (keybinding below) and just attach here,
       -- delete the `load` line.
       postRemoteConnectCommands = {
+        -- Harmless if unused: tells OpenOCD to trap the semihosting BKPT
+        -- instruction instead of faulting on it. Only matters if firmware
+        -- actually issues a semihosting call (see docs/stm32-embedded.md).
+        { text = 'monitor arm semihosting enable', description = 'Enable ARM semihosting', ignoreFailures = false },
         { text = 'monitor reset halt', description = 'Reset and halt target', ignoreFailures = false },
         { text = 'load', description = 'Flash ELF via gdb', ignoreFailures = false },
         { text = 'monitor reset halt', description = 'Reset again after flashing', ignoreFailures = false },
