@@ -136,7 +136,7 @@ multiple definition of `_times'; ...
 multiple definition of `_isatty'; ...
 ```
 
-(I hit this and verified it directly before writing this toggle.) So `SEMIHOSTING=1`:
+So `SEMIHOSTING=1`:
 - **Excludes `Core/Src/syscalls.c`** from the build entirely (`Core/Src/sysmem.c` stays either way — its `_sbrk` is a strong symbol that safely overrides `librdimon`'s weak default, so heap allocation keeps its stack-collision safety check regardless of mode).
 - Swaps `LIBS`/`LDFLAGS` to `-specs=rdimon.specs` (which injects `librdimon` and `libc` itself — don't add `-lrdimon` manually) instead of `-lnosys`.
 - Builds into `build-semihost/` instead of `build/`, so switching modes back and forth never needs a `make clean` first and never mixes stale objects from the other mode.
