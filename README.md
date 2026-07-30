@@ -239,3 +239,120 @@ sudo pacman -S --noconfirm --needed gcc make git ripgrep fd unzip neovim
 ```
 </details>
 
+## Linux Installation Manual (Headless Debian)
+
+Backup of the full setup used to get this config running on a **headless Debian**
+box (no display server, SSH-only access; tested on a ThinkPad X230, x86_64).
+This goes beyond the minimal snippet in [Debian Install Steps](#Linux-Install)
+above because this config also drives Go, Rust, and an ARM/STM32 embedded
+toolchain, none of which ship in a way `apt` alone covers.
+
+### 0. Sanity check
+
+```sh
+cat /etc/os-release
+uname -m        # expect x86_64
+```
+
+### 1. Base packages (apt)
+
+```sh
+sudo apt update
+sudo apt install -y \
+  git curl wget unzip xz-utils ca-certificates \
+  build-essential \
+  ripgrep fd-find \
+  python3 python3-venv python3-pip \
+  gcc-arm-none-eabi binutils-arm-none-eabi gdb-multiarch openocd
+```
+
+- `build-essential` — compiles Treesitter parsers, `telescope-fzf-native`, and LuaSnip's regex module.
+- `ripgrep` / `fd-find` — power Telescope's live grep / find files. Debian names the fd binary
+  `fdfind`; symlink it so the config's assumed `fd` name resolves:
+  ```sh
+  mkdir -p ~/.local/bin
+  ln -sf "$(command -v fdfind)" ~/.local/bin/fd
+  echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+  ```
+- `python3-venv` / `pip` — Mason needs these to install `pylsp`, `black`, `isort`, `ruff`, `debugpy`
+  into isolated venvs.
+- ARM packages — for the STM32 templates/docs in this config (`arm-none-eabi-gdb`, `openocd`).
+
+### 2. Neovim itself
+
+Debian's packaged Neovim (0.9.x on bookworm) is too old for this config (`blink.cmp`, `mini.nvim`,
+and the Treesitter `master` branch all need ≥0.10). Install the official prebuilt release instead:
+
+```sh
+curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
+sudo tar -C /opt -xzf nvim-linux-x86_64.tar.gz
+sudo ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
+rm nvim-linux-x86_64.tar.gz
+nvim --version   # confirm it's recent
+```
+
+### 3. Go toolchain
+
+Needed for `gopls`, `goimports`, `gofumpt`, `golangci-lint`, `delve` — all installed by Mason via
+`go install`, which requires a Go toolchain already on `PATH`.
+
+```sh
+curl -LO https://go.dev/dl/go1.24.0.linux-amd64.tar.gz   # check go.dev/dl for the current version
+sudo tar -C /usr/local -xzf go1.24.0.linux-amd64.tar.gz
+echo 'export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin"' >> ~/.bashrc
+rm go1.24.0.linux-amd64.tar.gz
+```
+
+### 4. Rust toolchain
+
+`rust_analyzer` is Mason-managed, but `rustfmt`/`clippy` come from `rustup`, not Mason:
+
+```sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source "$HOME/.cargo/env"
+rustup component add rustfmt clippy
+```
+
+### 5. lazygit
+
+Not in Debian's repos — install the prebuilt binary:
+
+```sh
+LG_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
+curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LG_VERSION}_Linux_x86_64.tar.gz"
+tar xf lazygit.tar.gz lazygit
+sudo install lazygit /usr/local/bin
+rm lazygit lazygit.tar.gz
+```
+
+### 6. Get the config onto the machine
+
+```sh
+git clone https://github.com/petrostrak/nvim.git ~/.config/nvim
+```
+
+### 7. First launch
+
+```sh
+source ~/.bashrc   # picks up PATH changes
+nvim
+```
+
+Let `lazy.nvim` install plugins, then let `mason-tool-installer` pull LSP servers, formatters,
+linters, and debug adapters. This first run can take a couple of minutes on slower hardware
+(e.g. a ThinkPad X230) — it looks stalled but is bootstrapping `lazy.nvim`, syncing plugins, and
+downloading Mason tools. Once it settles, run `:checkhealth` and `:Mason` to confirm everything
+installed cleanly.
+
+### Known caveats on headless boxes
+
+- **Clipboard (`unnamedplus`)**: with no X11/Wayland session, `xclip`/`wl-copy` don't exist, so
+  system-clipboard yank/paste won't work over plain SSH. Fine to ignore if unneeded; otherwise it
+  requires switching to an OSC52-based clipboard provider (a config change, not just a package install).
+- **Nerd Font icons / true color**: these render based on the terminal you SSH *from*, not the
+  headless box itself. Make sure your client terminal has a Nerd Font and 24-bit color support.
+- **clangd**: disabled by default (`vim.g.enable_clangd`), and its `query-driver` path
+  (`lua/custom/plugins/lsp.lua`) is hardcoded to a macOS Homebrew path. To use clangd for the
+  STM32 work on Debian, point it at `/usr/bin/arm-none-eabi-*` (from `gcc-arm-none-eabi` above)
+  instead.
+
