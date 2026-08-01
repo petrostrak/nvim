@@ -49,7 +49,11 @@ fi
 cp -r "$VENDOR_DIR" "$PROJECT_DIR"
 mkdir -p "$PROJECT_DIR/Core/Inc"
 # Rename the Makefile's TARGET to match the project name.
-sed -i '' "s/^TARGET = firmware/TARGET = $PROJECT_NAME/" "$PROJECT_DIR/Makefile"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  sed -i '' "s/^TARGET = firmware/TARGET = $PROJECT_NAME/" "$PROJECT_DIR/Makefile"
+else
+  sed -i "s/^TARGET = firmware/TARGET = $PROJECT_NAME/" "$PROJECT_DIR/Makefile"
+fi
 # Drop in the clangd cross-compilation config.
 cp "$SCRIPT_DIR/.clangd" "$PROJECT_DIR/.clangd"
 cat > "$PROJECT_DIR/.gitignore" <<'EOF'
