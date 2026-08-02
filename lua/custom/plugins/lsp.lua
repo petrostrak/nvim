@@ -150,11 +150,19 @@ return {
 
     local capabilities = require('blink.cmp').get_lsp_capabilities()
 
+    -- Compilers clangd is allowed to interrogate for their built-in include
+    -- paths and defines (needed whenever `compile_commands.json` names a
+    -- compiler other than clang, e.g. the arm-none-eabi cross toolchain).
+    -- Globs for every machine this config runs on; non-existent paths are
+    -- simply ignored by clangd.
+    local query_driver = table.concat({
+      '/usr/bin/arm-none-eabi-*', -- Fedora Asahi / Debian (gcc-arm-none-eabi)
+      '/opt/homebrew/bin/arm-none-eabi-*', -- macOS (Homebrew)
+      '/usr/bin/*gcc*',
+      '/usr/lib64/ccache/*', -- Fedora puts ccache shims ahead of /usr/bin on PATH
+    }, ',')
+
     -- LSP CONF
-    -- clangd is only useful on machines where you develop C/C++. On other
-    -- machines it attaches to buffers with no compilation database and throws
-    -- `-32001: invalid AST`. Set `vim.g.enable_clangd = true` (e.g. in a
-    -- machine-local config) on your C dev machine to turn it on there.
     local servers = {
       clangd = {
         cmd = {
@@ -165,7 +173,7 @@ return {
           '--completion-style=detailed',
           '--function-arg-placeholders',
           '--fallback-style=llvm',
-          '--query-driver=/opt/homebrew/bin/arm-none-eabi-*',
+          '--query-driver=' .. query_driver,
         },
         init_options = {
           usePlaceholders = true,
@@ -242,11 +250,6 @@ return {
       },
     }
 
-    -- Only run clangd on machines that opt in (see note above).
-    if not vim.g.enable_clangd then
-      servers.clangd = nil
-    end
-
     -- Ensure the servers and tools above are installed
     --
     -- To check the current status of installed tools and/or manually install
@@ -260,7 +263,16 @@ return {
     --
     -- You can add other tools here that you want Mason to install
     -- for you, so that they are available from within Neovim.
-    local ensure_installed = vim.tbl_keys(servers or {})
+    --
+    -- clangd is only left in this list on platforms Mason actually has a
+    -- binary for: the registry ships darwin_x64/darwin_arm64, linux_x64_gnu
+    -- and win_x64 only, so on aarch64 Linux (Fedora Asahi) the install always
+    -- fails. There clangd comes from the system package manager instead
+    -- (`dnf install clang-tools-extra`) and is enabled by hand below.
+    local mason_has_clangd = vim.fn.has 'mac' == 1 or vim.uv.os_uname().machine == 'x86_64'
+    local ensure_installed = vim.tbl_filter(function(name)
+      return mason_has_clangd or name ~= 'clangd'
+    end, vim.tbl_keys(servers or {}))
     vim.list_extend(ensure_installed, {
       'stylua', -- Used to format Lua code (this config)
       'clang-format', -- C/C++ formatter
@@ -279,19 +291,24 @@ return {
     })
     require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
+    -- mason-lspconfig v2 dropped `setup_handlers`/`handlers`: it just calls
+    -- `vim.lsp.enable()` for every installed server, which picks up the
+    -- configs registered through `vim.lsp.config()` (nvim >= 0.11) and merges
+    -- them over nvim-lspconfig's defaults in `lsp/<server>.lua`.
+    vim.lsp.config('*', { capabilities = capabilities })
+    for server_name, server in pairs(servers) do
+      vim.lsp.config(server_name, server)
+    end
+
     require('mason-lspconfig').setup {
       ensure_installed = {}, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
-      automatic_installation = false,
-      handlers = {
-        function(server_name)
-          local server = servers[server_name] or {}
-          -- This handles overriding only values explicitly passed
-          -- by the server configuration above. Useful when disabling
-          -- certain features of an LSP (for example, turning off formatting for ts_ls)
-          server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
-          require('lspconfig')[server_name].setup(server)
-        end,
-      },
     }
+
+    -- Mason won't enable clangd here (it can't install it on this platform),
+    -- so enable it directly whenever a clangd is on PATH. It only attaches to
+    -- C/C++/ObjC/CUDA buffers, so this is a no-op on non-C machines.
+    if vim.fn.executable 'clangd' == 1 then
+      vim.lsp.enable 'clangd'
+    end
   end,
 }

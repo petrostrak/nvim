@@ -7,7 +7,7 @@ Cortex-M debugging over OpenOCD, and build/flash keybindings.
 
 | File | Change |
 |---|---|
-| `lua/custom/plugins/lsp.lua` | Added `--query-driver=/opt/homebrew/bin/arm-none-eabi-*` to clangd's `cmd`, so clangd is allowed to query the ARM toolchain for system include paths. |
+| `lua/custom/plugins/lsp.lua` | Added a `--query-driver` glob covering the ARM toolchain on every machine (`/usr/bin/arm-none-eabi-*` on Fedora Asahi / Debian, `/opt/homebrew/bin/arm-none-eabi-*` on macOS), so clangd is allowed to query it for system include paths. |
 | `templates/stm32/.clangd` | New per-project template (see below). |
 | `lua/custom/plugins/tests.lua` | Added a `cppdbg` (cpptools) DAP adapter and an "STM32: Attach via OpenOCD" launch config, alongside the existing `codelldb` config. |
 | `lua/custom/plugins/toggleterm.lua` | Added `<leader>bb` (make) and `<leader>bf` (make flash). |
@@ -154,7 +154,8 @@ When debugging with `SEMIHOSTING=1`, remember the DAP config's default ELF-path 
 ## Troubleshooting
 
 - **clangd shows errors on HAL/CMSIS headers, or "unknown argument" errors mentioning ARM-specific flags** — usually means `.clangd` isn't in the project root, or `compile_commands.json` is stale/missing. Re-run `compiledb make` and check `:LspInfo` in Neovim to confirm which config it picked up.
-- **clangd complains it doesn't trust the compiler** — the `--query-driver` glob in `lsp.lua` must match the full path of `arm-none-eabi-gcc` on your machine. Confirm with `which arm-none-eabi-gcc`; if it's not under `/opt/homebrew/bin/`, update the glob in `lsp.lua`.
+- **clangd complains it doesn't trust the compiler** — the `--query-driver` globs in `lsp.lua` must match the full path of `arm-none-eabi-gcc` on your machine. Confirm with `which arm-none-eabi-gcc`; if it's not under `/usr/bin/` or `/opt/homebrew/bin/`, add the glob in `lsp.lua`.
+- **no clangd at all (`:LspInfo` shows nothing attached in a C buffer)** — on aarch64 Linux Mason can't install clangd (no such build in its registry); install it from the system package manager (`dnf install clang-tools-extra` on Fedora Asahi) and restart Neovim. On macOS `:MasonInstall clangd` is enough.
 - **nvim-dap can't connect / hangs on "STM32: Attach via OpenOCD"** — make sure OpenOCD is actually running and printed "Listening on port 3333 for gdb connections" *before* you start the debug session. If the port's in use, another OpenOCD instance is probably already running (check with `lsof -i :3333`).
 - **`cppdbg` adapter not found** — cpptools hasn't finished installing via Mason yet. Run `:Mason` in Neovim and check its status, or `:MasonInstall cpptools` to force it.
 - **Wrong `.elf` path when prompted** — the default guess is `<project>/build/`; adjust to wherever your Makefile actually outputs the ELF.

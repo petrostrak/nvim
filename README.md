@@ -351,8 +351,11 @@ installed cleanly.
   requires switching to an OSC52-based clipboard provider (a config change, not just a package install).
 - **Nerd Font icons / true color**: these render based on the terminal you SSH *from*, not the
   headless box itself. Make sure your client terminal has a Nerd Font and 24-bit color support.
-- **clangd**: disabled by default (`vim.g.enable_clangd`), and its `query-driver` path
-  (`lua/custom/plugins/lsp.lua`) is hardcoded to a macOS Homebrew path. To use clangd for the
-  STM32 work on Debian, point it at `/usr/bin/arm-none-eabi-*` (from `gcc-arm-none-eabi` above)
-  instead.
+- **clangd**: the Mason registry only ships clangd binaries for `darwin_x64`/`darwin_arm64`,
+  `linux_x64_gnu` and `win_x64`. On macOS and x86_64 Linux Mason installs it as usual; on aarch64
+  Linux (Fedora Asahi, ARM servers) it can't, so install it from the system package manager there
+  (`dnf install clang-tools-extra`, `apt install clangd`). Either way `lsp.lua` enables clangd
+  automatically whenever one is on `PATH`. Its `--query-driver` glob already covers
+  `/usr/bin/arm-none-eabi-*` and the macOS Homebrew path; add yours there if the toolchain lives
+  elsewhere.
 
